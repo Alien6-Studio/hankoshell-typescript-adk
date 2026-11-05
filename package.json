@@ -1,6 +1,6 @@
 {
   "name": "@alien6-studio/hankoshell-typescript-adk",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "HankoShell OIDC and IAM clients with Auth.js, Passport and headless React account screens",
   "type": "module",
   "sideEffects": false,
@@ -13,7 +13,8 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "examples/authjs-session.ts"
   ],
   "exports": {
     ".": {
@@ -52,7 +53,8 @@
     "test": "node --import tsx --test 'src/**/*.test.ts'",
     "test:coverage": "c8 --check-coverage --lines 85 --statements 85 --functions 95 --branches 70 --reporter=lcov --reporter=text node --import tsx --test 'src/**/*.test.ts'",
     "test:package": "node scripts/check-package.mjs",
-    "check": "npm run lint && npm run test:coverage && npm run build && npm run test:package && npm pack --dry-run"
+    "check": "npm run lint && npm run test:coverage && npm run build && npm run test:examples && npm run test:package && npm pack --dry-run",
+    "test:examples": "tsc -p tsconfig.examples.json --noEmit && node --import tsx --test examples/authjs-session.test.ts"
   },
   "dependencies": {
     "jose": "^6.2.1",

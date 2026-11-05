@@ -11,7 +11,7 @@ export type {
   HankoEnvironment,
   HankoResourceServerConfig,
 } from "./config.js";
-export { HankoDiscovery } from "./discovery.js";
+export { HankoDiscovery, HankoDiscoveryError } from "./discovery.js";
 export type {
   HankoDiscoveryOptions,
   HankoFetch,
@@ -47,4 +47,4 @@ export { createHankoAccessTokenVerifier } from "./verify.js";
 export { HankoApplicationOrganizationClient } from "./application-organization.js";
 export type { HankoApplicationMembership, HankoApplicationMembers, HankoApplicationInvitation, HankoApplicationOrganizationOptions } from "./application-organization.js";
 
-export { HankoHttpError } from "./http.js";
+export { HankoHttpError, HankoResponseError, HankoTransportError } from "./http.js";

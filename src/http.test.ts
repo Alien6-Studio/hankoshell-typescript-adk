@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { requestHankoJson } from "./http.js";
+import { HankoResponseError, requestHankoJson } from "./http.js";
 
 test("bounds a stalled fetch even when a supplied fetch ignores cancellation", async () => {
   await assert.rejects(requestHankoJson("https://auth.example.test", {}, {
@@ -34,4 +34,10 @@ test("refuses redirects, invalid limits and upstream errors without exposing the
     fetch: async () => Response.redirect("https://other.example.test"),
   }), /status 302/);
   await assert.rejects(requestHankoJson("https://auth.example.test", {}, { timeoutMs: 0 }), /limits/);
+});
+
+test("malformed response JSON is classified without exposing parser input", async () => {
+  await assert.rejects(requestHankoJson("https://auth.example.test", {}, {
+    fetch: async () => new Response("private-provider-packet-sentinel"),
+  }), (error: unknown) => error instanceof HankoResponseError && !error.message.includes("sentinel") && error.cause === undefined);
 });
