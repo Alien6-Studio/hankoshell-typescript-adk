@@ -13,29 +13,31 @@ export interface HankoOidcMetadata {
 export type HankoMetadataEndpoint = Exclude<keyof HankoOidcMetadata, "issuer">;
 export type HankoDiscoveryOptions = HankoHttpOptions;
 
+export class HankoDiscoveryError extends Error {}
+
 function validateEndpoint(
   value: unknown,
   field: HankoMetadataEndpoint,
   issuer: URL,
 ): string {
   if (typeof value !== "string" || !value.trim()) {
-    throw new Error(`Hanko discovery does not expose ${field}`);
+    throw new HankoDiscoveryError(`Hanko discovery does not expose ${field}`);
   }
 
   let endpoint: URL;
   try {
     endpoint = new URL(value);
   } catch {
-    throw new Error(`Hanko discovery ${field} must be an absolute URL`);
+    throw new HankoDiscoveryError(`Hanko discovery ${field} must be an absolute URL`);
   }
   if (endpoint.username || endpoint.password || endpoint.hash) {
-    throw new Error(`Hanko discovery ${field} contains forbidden URL components`);
+    throw new HankoDiscoveryError(`Hanko discovery ${field} contains forbidden URL components`);
   }
   if (endpoint.protocol !== issuer.protocol) {
-    throw new Error(`Hanko discovery ${field} must use the issuer protocol`);
+    throw new HankoDiscoveryError(`Hanko discovery ${field} must use the issuer protocol`);
   }
   if (endpoint.origin !== issuer.origin) {
-    throw new Error(`Hanko discovery ${field} must use the issuer origin`);
+    throw new HankoDiscoveryError(`Hanko discovery ${field} must use the issuer origin`);
   }
   return endpoint.toString();
 }
@@ -74,8 +76,8 @@ export class HankoDiscovery {
     const metadata = await requestHankoJson<HankoOidcMetadata>(`${this.#issuer}/.well-known/openid-configuration`, {
       headers: { Accept: "application/json" },
     }, this.#options);
-    if (metadata.issuer !== this.#issuer) {
-      throw new Error("Hanko discovery issuer does not match the configured issuer");
+    if (!metadata || typeof metadata !== "object" || metadata.issuer !== this.#issuer) {
+      throw new HankoDiscoveryError("Hanko discovery issuer does not match the configured issuer");
     }
     return Object.freeze(metadata);
   }

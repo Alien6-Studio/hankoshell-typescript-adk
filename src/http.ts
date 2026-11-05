@@ -3,6 +3,15 @@ export class HankoHttpError extends Error {
   constructor(readonly status: number) { super(`Hanko HTTP request returned status ${status}`); }
 }
 
+/** Safe categories only: never retain a fetch exception or response body as cause. */
+export class HankoTransportError extends Error {
+  constructor(readonly reason: "aborted" | "network") {
+    super(reason === "aborted" ? "Hanko HTTP request aborted" : "Hanko HTTP transport failed");
+  }
+}
+
+export class HankoResponseError extends Error {}
+
 export type HankoFetch = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 
 export interface HankoHttpOptions {
@@ -28,8 +37,8 @@ export async function requestHankoJson<T>(
   const signal = init.signal ? AbortSignal.any([init.signal, controller.signal]) : controller.signal;
   let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
   const aborted = new Promise<never>((_, reject) => {
-    if (signal.aborted) reject(new Error("Hanko HTTP request aborted"));
-    else signal.addEventListener("abort", () => reject(new Error("Hanko HTTP request aborted")), { once: true });
+    if (signal.aborted) reject(new HankoTransportError("aborted"));
+    else signal.addEventListener("abort", () => reject(new HankoTransportError("aborted")), { once: true });
   });
   const timer = setTimeout(() => controller.abort(), timeout);
   try {
@@ -46,10 +55,10 @@ export async function requestHankoJson<T>(
       }
       if (Number(response.headers.get("Content-Length")) > limit) {
         void response.body?.cancel().catch(() => undefined);
-        throw new Error("Hanko HTTP response exceeds its byte limit");
+        throw new HankoResponseError("Hanko HTTP response exceeds its byte limit");
       }
       reader = response.body?.getReader();
-      if (!reader) throw new Error("Hanko HTTP response is empty");
+      if (!reader) throw new HankoResponseError("Hanko HTTP response is empty");
       const chunks: Uint8Array[] = [];
       let size = 0;
       for (;;) {
@@ -57,13 +66,17 @@ export async function requestHankoJson<T>(
         const part = await reader.read();
         if (part.done) break;
         size += part.value.byteLength;
-        if (size > limit) throw new Error("Hanko HTTP response exceeds its byte limit");
+        if (size > limit) throw new HankoResponseError("Hanko HTTP response exceeds its byte limit");
         chunks.push(part.value);
       }
       const data = new Uint8Array(size);
       let offset = 0;
       for (const chunk of chunks) { data.set(chunk, offset); offset += chunk.byteLength; }
-      return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(data)) as T;
+      try {
+        return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(data)) as T;
+      } catch {
+        throw new HankoResponseError("Hanko HTTP response is invalid JSON");
+      }
     })()]);
   } finally {
     clearTimeout(timer);

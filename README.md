@@ -38,6 +38,11 @@ Only `name`, `style`, `profile` and `account` may be customized. Applications ow
 session storage and their business roles. Install the optional Auth.js peer when
 using this entry point.
 
+This snippet configures the provider only. It does **not** store access/refresh
+tokens, renew them, persist rotated cookies or implement logout revocation. Use
+the type-checked [Auth.js session example](examples/authjs-session.ts) and the
+session contract below when building a complete application integration.
+
 ## Passport / NestJS
 
 ```ts
@@ -196,7 +201,98 @@ every returned access token. Tokens and secrets are never persisted by the ADK.
 ## Refresh and logout
 
 `refreshHankoAccessToken` uses same-origin discovery and refuses HTTP failures.
-The caller must handle `HankoRefreshTokenError` by requiring authentication.
+It retains the existing `error` string contract (`HankoRefreshTokenError`, or
+the supplied `errorCode`) and adds allowlisted `refreshFailure` metadata:
+
+| Category | Meaning | Safe to retry the same refresh token? |
+| --- | --- | --- |
+| `missing_refresh_token`, `configuration` | Missing token or invalid client configuration | No; correct configuration or sign in. |
+| `discovery_unavailable` | Discovery transport or HTTP failure, before token exchange | Only when `retryable` is `true`; use bounded backoff. |
+| `discovery_invalid` | Invalid metadata or issuer/endpoint substitution | No; review trust configuration. |
+| `rejected_grant` | Refresh endpoint returned HTTP 400 with `invalid_grant` | No; require sign-in. |
+| `client_configuration` | Client authentication/authorization rejected | No; correct client configuration. |
+| `provider_unavailable` | Refresh endpoint returned 429 or a server error | No automatic replay: an upstream may already have consumed the token. |
+| `refresh_outcome_unknown`, `invalid_response` | Lost POST response, unexpected rejection or invalid success packet | No; consumption is unknown, so require sign-in or an independently verified recovery. |
+| `coordinator_capacity` | Local coordinator refused new work before exchange | `retryable: true`; no token was submitted. |
+| `session_invalidated` | Host invalidated the tracked lineage | No; never restore this result. |
+
+Metadata contains only `category`, `stage`, `retryable` and an optional numeric
+`httpStatus`. Provider bodies, exception messages and credentials are never
+included. A network timeout **after POST submission** is not evidence that the
+provider failed to rotate the token. The helper never automatically retries.
+For compatibility, an errored helper result still retains old credential fields:
+**presence of `accessToken` does not establish success; check `error` first.**
+An application must suppress access credentials from errored public sessions.
+Only a definitely pre-exchange failure permits retaining the private refresh
+token for a later, bounded retry. Never log a complete result object.
+
+### Session ownership and rotation
+
+Create one `createHankoRefreshCoordinator()` per server process and call its
+`refresh(token, client, options)` method from the JWT callback. It coalesces
+concurrent calls for the same issuer/client/credential/refresh lineage and
+briefly reuses completed provider-field results for requests carrying an old
+cookie. Caller-specific JWT fields are not shared. Keys are SHA-256 digests;
+credential-bearing results remain memory-only and must not be logged.
+
+The default completed-result window is ten seconds, at most the returned access
+token's remaining lifetime; `reuseWindowMs` accepts 1–60000 ms. `maxEntries`
+defaults to 256 (range 1–4096). Expired completed entries are pruned on use.
+Pending entries are never evicted to make room: capacity exhaustion fails
+closed before exchange. Failed outcomes are retained too, preventing immediate
+blind replay after an ambiguous POST. This bounded cache is not a permanent
+guarantee against replay after eviction, expiration or restart.
+
+`await coordinator.invalidate(token, client)` invalidates an in-flight or
+completed lineage and installs a short-lived tombstone. It returns `false`
+when no key can be constructed or capacity prevents a new tombstone. `clear()`
+invalidates tracked results, including pending work. Neither method revokes a
+provider session, an encrypted application cookie or another server's cache.
+The host must fence logout/account replacement against late responses with its
+own session ownership/version or revocation mechanism.
+
+The coordinator is **process-local**, not a distributed lock or session store.
+Multiple replicas, overlapping rollouts, restarts and concurrent tabs can
+present old cookies to different processes. Use a shared session/rotation owner
+for that topology, or enforce a documented single-process topology and invalidate
+old application sessions on process replacement. Do not relax single-use token
+rotation to hide duplicate refreshes. A browser promise alone cannot coordinate
+server requests or replicas.
+
+### Auth.js integration contract
+
+The [executable example](examples/authjs-session.ts) is type-checked by
+`npm run test:examples` after building the package. Copy and adapt it to the
+host; its comments identify the additional revocation/topology responsibilities.
+It is not a ready-made distributed session service.
+
+1. Capture the access token, refresh token, expiry and private logout hint in
+   server-owned encrypted session state at sign-in. Use a renewal margin (for
+   example 30 seconds) consistently in the browser/API and JWT callback.
+2. Refresh through one owner on demand. Standalone browser
+   `getSession({ broadcast: false })` returns JSON but does not update the same-tab
+   `SessionProvider`. Use `useSession().update()` or an explicit common state owner
+   so UI and API memory commit the same result. Polling is optional; lack of polling
+   must not create a second unsynchronized refresh path.
+3. Persist the rotated token **in the response actually sent to the browser**.
+   Auth.js `/session` handlers and the `auth(handler)` request wrapper propagate
+   replacement cookies. No-argument `auth()` returns parsed session JSON; a Server
+   Component cannot write the refreshed cookie. Use a separate read-only callback
+   configuration for render-time reads, as the example shows. Do not run consuming
+   refresh callbacks from a path that discards `Set-Cookie`.
+4. Whitelist public session fields. Never spread the JWT/account packet into
+   session JSON or expose refresh tokens, client secrets, ID tokens or private
+   logout hints. After refresh failure, preserve an explicit temporary/error or
+   reauthentication state: do not silently send a protected request anonymously.
+5. Test concurrent expiry, late old cookies, the next rotated refresh, response
+   reordering, two tabs, logout during renewal and process replacement. Configure
+   cookie origin/security and exact callback/logout URIs explicitly.
+
+The application cookie lifetime, access-token lifetime and identity session
+idle/maximum lifetimes are separate clocks. A valid application cookie does not
+keep an idle identity session alive. Sign-in after a legitimately expired
+identity session is expected; increasing a cookie lifetime cannot repair it.
+
 `getHankoLogoutToken` retains Hanko's private upstream hint for server-side
 sessions; `createHankoLogoutUrl` constructs RP-initiated logout. Never expose the
 hint in a browser session or substitute a different ID token.
