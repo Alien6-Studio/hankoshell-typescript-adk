@@ -4,7 +4,7 @@ Application authentication, backend adapters and reusable account screens for Ha
 Use Node 22 or 24. Install the qualified public release:
 
 ```sh
-npm install https://github.com/Alien6-Studio/hankoshell-typescript-adk/releases/download/v0.7.0/alien6-studio-hankoshell-typescript-adk-0.7.0.tgz
+npm install https://github.com/Alien6-Studio/hankoshell-typescript-adk/releases/download/v0.7.1/alien6-studio-hankoshell-typescript-adk-0.7.1.tgz
 ```
 
 [![CI](https://github.com/Alien6-Studio/hankoshell-typescript-adk/actions/workflows/ci.yml/badge.svg)](https://github.com/Alien6-Studio/hankoshell-typescript-adk/actions/workflows/ci.yml)
