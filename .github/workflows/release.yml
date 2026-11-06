@@ -101,7 +101,7 @@ jobs:
           const { name, version } = JSON.parse(readFileSync('package.json', 'utf8'));
           const packages = readdirSync('artifacts').filter(file => file.endsWith('.tgz'));
           assert.equal(packages.length, 1);
-          const archive = `artifacts/${packages[0]}`;
+          const archive = `./artifacts/${packages[0]}`;
           const expected = 'sha512-' + createHash('sha512').update(readFileSync(archive)).digest('base64');
           const endpoint = `https://registry.npmjs.org/${encodeURIComponent(name)}/${encodeURIComponent(version)}`;
           async function registry() {
