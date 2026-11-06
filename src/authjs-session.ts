@@ -56,7 +56,7 @@ export function createHankoAuthJsSession(options: HankoAuthJsSessionOptions) {
       if (typeof token.hankoSessionId !== "string") return unavailable("ReauthenticationRequired");
       try {
         const current = await (await manager()).read(token.hankoSessionId);
-        const access = resolveHankoApplicationAccess(current.principal, options.audience);
+        const access = resolveHankoApplicationAccess(current.principal, options.audience, { clientId: (await configuration()).clientId });
         return { expires: new Date(current.expiresAt).toISOString(),
           user: { ...(current.principal.name ? { name: current.principal.name } : {}), ...(current.principal.email ? { email: current.principal.email } : {}) },
           issuer: current.principal.issuer, sub: current.principal.subject, roles: access.roles,

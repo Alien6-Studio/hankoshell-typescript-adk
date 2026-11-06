@@ -123,6 +123,10 @@ test("Auth.js config keeps the opaque pointer in cookies and exposes no long-liv
   assert.equal(session.accessToken, initial.accessToken);
   assert.ok(!JSON.stringify(session).includes(initial.refreshToken));
   assert.ok(!JSON.stringify(session).includes("id-token-private"));
+  const selected = createHankoAuthJsSession({ ...f.options, verify: async () => ({ issuer: client.issuer, subject: "alice", audiences: ["api"], claims: {
+    azp: "web", hanko_application_context: { subject: "alice", organization: "org", root: "root", node_path: ["root", "org"], role: "reader", administrator: false, policy_version: 1, roles: ["member"] }, resource_access: { web: { roles: ["member"] }, api: { roles: ["admin"] } },
+  } }) });
+  assert.deepEqual((await selected.callbacks.session({ session: { expires: "irrelevant" }, token })).roles, ["member"]);
   assert.equal(await adapter.logoutToken({}), undefined);
   await adapter.revoke(token);
   assert.equal((await adapter.callbacks.session({ session: { expires: "irrelevant" }, token })).error, "ReauthenticationRequired");
