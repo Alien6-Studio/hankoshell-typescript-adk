@@ -1,0 +1,16 @@
+[
+  {"name":"application role","audience":"api","claims":{"resource_access":{"api":{"roles":["member"]}}},"roles":["member"]},
+  {"name":"realm administrator is not application administrator","audience":"api","claims":{"realm_access":{"roles":["admin"]}},"denial":"application_roles_missing"},
+  {"name":"wrong audience","audience":"other","claims":{},"denial":"audience_mismatch"},
+  {"name":"ambiguous organizations","audience":"api","claims":{"organization":{"one":{},"two":{}}},"denial":"organization_ambiguous"},
+  {"name":"malformed organizations","audience":"api","claims":{"organization":[]},"denial":"organization_malformed"},
+  {"name":"selected organization cannot use global grants","audience":"api","claims":{"organization":{"one":{}},"resource_access":{"api":{"roles":["admin"]}}},"denial":"application_roles_missing"},
+  {"name":"organization application roles","audience":"api","claims":{"organization":{"one":{"resource_access":{"api":{"roles":["member"]}}}}},"roles":["member"]},
+  {"name":"malformed roles","audience":"api","claims":{"resource_access":{"api":{"roles":["member",1]}}},"denial":"application_roles_malformed"},
+  {"name":"empty roles","audience":"api","claims":{"resource_access":{"api":{"roles":[]}}},"denial":"required_role_missing"},
+  {"name":"selected context requires explicit client binding","audience":"api","claims":{"azp":"web","hanko_application_context":{}},"denial":"application_binding_mismatch"},
+  {"name":"selected context for a distinct sign-in client","audience":"api","clientId":"web","claims":{"azp":"web","hanko_application_context":{"subject":"alice","organization":"org","root":"root","node_path":["root","org"],"role":"reader","administrator":false,"policy_version":1,"roles":["member"]},"resource_access":{"web":{"roles":["member"]},"api":{"roles":["admin"]}}},"roles":["member"]},
+  {"name":"selected context cannot switch authorized party","audience":"api","clientId":"other","claims":{"azp":"web","hanko_application_context":{}},"denial":"application_binding_mismatch"},
+  {"name":"selected context cannot change subject","audience":"api","clientId":"web","claims":{"azp":"web","hanko_application_context":{"subject":"bob","organization":"org","root":"root","node_path":["root","org"],"role":"reader","administrator":false,"policy_version":1,"roles":["member"]}},"denial":"organization_malformed"},
+  {"name":"selected context cannot borrow a different role set","audience":"api","clientId":"web","claims":{"azp":"web","hanko_application_context":{"subject":"alice","organization":"org","root":"root","node_path":["root","org"],"role":"reader","administrator":false,"policy_version":1,"roles":["admin"]},"resource_access":{"web":{"roles":["member"]}}},"denial":"application_roles_malformed"}
+]

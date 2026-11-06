@@ -1,10 +1,10 @@
 # HankoShell TypeScript ADK
 
 Application authentication, backend adapters and reusable account screens for HankoShell.
-Use Node 22 or 24. Install the public package from npm:
+Use Node 22 or 24. Install the qualified public release:
 
 ```sh
-npm install @alien6-studio/hankoshell-typescript-adk
+npm install https://github.com/Alien6-Studio/hankoshell-typescript-adk/releases/download/v0.7.0/alien6-studio-hankoshell-typescript-adk-0.7.0.tgz
 ```
 
 [![CI](https://github.com/Alien6-Studio/hankoshell-typescript-adk/actions/workflows/ci.yml/badge.svg)](https://github.com/Alien6-Studio/hankoshell-typescript-adk/actions/workflows/ci.yml)
@@ -23,25 +23,58 @@ Keep client secrets in your application’s secret mechanism and out of browser 
 
 ## Auth.js
 
+For a complete Node.js application session, use shared storage and the supported
+integration. Install the optional `next-auth` and `pg` peers in the host:
+
 ```ts
 import NextAuth from "next-auth";
+import { Pool } from "pg";
 import { loadHankoClientConfig } from "@alien6-studio/hankoshell-typescript-adk";
-import { createHankoAuthJsProvider } from "@alien6-studio/hankoshell-typescript-adk/authjs";
+import { createHankoAuthJsSession } from "@alien6-studio/hankoshell-typescript-adk/authjs/session";
+import { createHankoPostgresSessionStore } from "@alien6-studio/hankoshell-typescript-adk/sessions/postgres";
 
-export const { handlers, auth } = NextAuth({
-  providers: [createHankoAuthJsProvider(loadHankoClientConfig(process.env))],
+const integration = createHankoAuthJsSession({
+  client: () => loadHankoClientConfig(process.env),
+  audience: process.env.HANKO_AUDIENCE!,
+  secret: process.env.AUTH_SECRET!,
+  store: createHankoPostgresSessionStore(new Pool({ connectionString: process.env.HANKO_SESSION_DATABASE_URL })),
 });
+export const { handlers, auth, signIn, signOut } = NextAuth(() => integration.config());
 ```
 
-The adapter preserves PKCE, state, nonce and the configured issuer and endpoints.
-Only `name`, `style`, `profile` and `account` may be customized. Applications own
-session storage and their business roles. Install the optional Auth.js peer when
-using this entry point.
+Apply `HANKO_POSTGRES_SESSION_SCHEMA` through the host's migration procedure before
+deployment. Give the runtime database identity CRUD rights on this table only;
+keep the connection string and at least 32-byte `AUTH_SECRET` server-side. All
+replicas share these values. Construct the integration once per application
+process. A projected client secret can be read in the `client` callback for each
+exchange; issuer and client identity remain fixed for an existing session.
 
-This snippet configures the provider only. It does **not** store access/refresh
-tokens, renew them, persist rotated cookies or implement logout revocation. Use
-the type-checked [Auth.js session example](examples/authjs-session.ts) and the
-session contract below when building a complete application integration.
+The adapter handles PKCE, state, nonce, encrypted server-side token storage,
+coordinated renewal and sign-out revocation. Auth.js cookies contain only a random
+session pointer. Browser sessions expose a short-lived access token, its expiry,
+verified identity and role hints; never a refresh token or logout hint. API guards
+independently authorize every operation. Business account binding remains explicit.
+
+Mount Auth.js handlers at `/api/auth/[...nextauth]`. Keep route handlers on the Node
+runtime, and use the same-origin Auth.js sign-in/sign-out actions for CSRF protection.
+Do not redirect automatically on every API 401 or 403. `ReauthenticationRequired`
+offers a user-initiated sign-in; `SessionTemporarilyUnavailable` offers retry.
+The integration can also expose `callbacks` for an existing host configuration.
+Use `integration.logoutToken(privateJwt)` only server-side before revocation when
+implementing provider logout. A custom logout route must await
+`integration.revoke(privateJwt)` before reporting success; a storage failure must
+not be presented as confirmed sign-out. Schedule deletion of expired rows using
+`DELETE FROM hanko_sessions WHERE expires_at < (extract(epoch FROM now()) * 1000)`.
+
+`createHankoAuthJsProvider` remains available for applications that intentionally
+own their session lifecycle. Its smaller [cookie-session example](examples/authjs-session.ts)
+uses process-local coordination and does not provide shared storage or distributed
+revocation. Do not use it as the multi-replica reference.
+
+Run `HANKO_TEST_DATABASE_URL=<empty disposable database> npm run test:session-flow`
+to qualify real OIDC/PKCE, Auth.js cookies, PostgreSQL, concurrent independent
+instances, restart and logout with synthetic identities. See the
+[0.7.0 milestone](docs/releases/0.7.0.md).
 
 ## Passport / NestJS
 
@@ -69,6 +102,23 @@ const strategy = new Strategy(
 Passport performs signature verification before the callback. Calling
 `createHankoPrincipal` by itself does not authenticate a token. Install the
 optional `passport-jwt` peer for this entry point.
+
+After verification, `requireHankoApplicationAccess(principal, audience, ["staff", "admin"])`
+requires an application role and throws `HankoAccessError` with a safe category
+and status 403. It never substitutes realm-wide roles for application roles.
+Malformed or ambiguous organizations fail closed. Preserve application-specific
+business binding separately, using the verified issuer and subject, never an
+automatic email merge. `resolveHankoApplicationAccess` retains its legacy mapping
+for compatibility and should not be used as an implicit staff authorization gate.
+
+`HankoApplicationOrganizationClient.memberships()` lists approved organization
+choices. `selectMembership(id)` returns a bounded context access token; it does
+not grant new membership. Retain the original login token server-side for later
+selections. For a distinct sign-in client and API audience, explicitly supply
+`{ clientId: "example-web" }` as the fourth argument to
+`requireHankoApplicationAccess`. A selected context must match that authorized
+party, subject, organization path, policy version and application roles. A malformed
+context cannot fall back to global roles.
 
 ## React account screens
 

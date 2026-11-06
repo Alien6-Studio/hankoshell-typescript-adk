@@ -6,6 +6,7 @@ steps:
       set -eu
       npm ci
       npm run check
+      npm run test:session-flow
       npm audit --audit-level=high
       npm pack --pack-destination artifacts
       node --version > artifacts/toolchain.txt
@@ -21,6 +22,7 @@ steps:
       - tsconfig.build.json
       - tsconfig.examples.json
       - README.md
+      - docs/
       - LICENSE
       - CONTRIBUTING.md
       - SECURITY.md

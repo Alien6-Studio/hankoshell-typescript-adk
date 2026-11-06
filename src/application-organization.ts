@@ -18,6 +18,13 @@ export interface HankoApplicationInvitation {
   role: string;
   expires_at: string;
 }
+export interface HankoApplicationContextSelection {
+  membership: HankoApplicationMembership;
+  context: HankoApplicationMembership & { root: string; node_path: string[]; roles: string[]; policy_version: number };
+  access_token: string;
+  token_type: "Bearer";
+  expires_in: number;
+}
 export interface HankoApplicationOrganizationOptions extends HankoOrganizationClientOptions {
   realm: string;
   applicationId: string;
@@ -39,6 +46,14 @@ export class HankoApplicationOrganizationClient {
   }
   membership(signal?: AbortSignal): Promise<HankoApplicationMembership> {
     return this.#transport.call("GET", `${this.#path}/membership`, undefined, [200], signal);
+  }
+  memberships(signal?: AbortSignal): Promise<{ memberships: HankoApplicationMembership[] }> {
+    return this.#transport.call("GET", `${this.#path}/memberships`, undefined, [200], signal);
+  }
+  /** The original login token selects a context. Retain it server-side for later selections. */
+  async selectMembership(organization: string, signal?: AbortSignal): Promise<HankoApplicationContextSelection> {
+    segment(organization);
+    return this.#transport.call("POST", `${this.#path}/membership`, { organization }, [200], signal);
   }
   members(organization: string, signal?: AbortSignal): Promise<HankoApplicationMembers> {
     return this.#transport.call("GET", `${this.#organization(organization)}/members`, undefined, [200], signal);

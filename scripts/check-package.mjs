@@ -84,7 +84,10 @@ try {
   const entrypoints = [
     "",
     "/authjs",
+    "/authjs/session",
     "/passport",
+    "/sessions",
+    "/sessions/postgres",
     "/identity",
     "/identity/server",
   ];
@@ -181,7 +184,7 @@ try {
     "tsconfig.json",
   ]);
   console.log(
-    `Package consumer checks passed: ${manifest.name}@${manifest.version}, five server entrypoints, two bundled React entrypoints and React types.`,
+    `Package consumer checks passed: ${manifest.name}@${manifest.version}, server entrypoints, two bundled React entrypoints and React types.`,
   );
 } finally {
   rmSync(temporary, { recursive: true, force: true });

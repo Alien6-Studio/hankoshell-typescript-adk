@@ -62,6 +62,7 @@ export function createHankoAuthJsProvider(
       clientId: normalized.clientId,
       ...(normalized.clientSecret ? { clientSecret: normalized.clientSecret } : {}),
       issuer: normalized.issuer,
+      client: { token_endpoint_auth_method: normalized.clientSecret ? "client_secret_post" : "none" },
       checks: ["pkce", "state", "nonce"],
     },
   };
