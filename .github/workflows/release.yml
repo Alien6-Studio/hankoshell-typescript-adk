@@ -114,11 +114,12 @@ jobs:
           if (!published) {
             const result = spawnSync('npm', ['publish', archive, '--ignore-scripts', '--access', 'public', '--provenance'], { stdio: 'inherit' });
             assert.equal(result.status, 0, 'npm publication failed');
-            for (let attempt = 0; attempt < 5 && !published; attempt++) {
-              await new Promise(resolve => setTimeout(resolve, 2_000));
+            for (let attempt = 0; attempt < 60 && !published; attempt++) {
+              await new Promise(resolve => setTimeout(resolve, 5_000));
               published = await registry();
             }
           }
+          assert.ok(published, 'npm accepted the package but registry processing exceeded five minutes; verify availability before retrying');
           assert.equal(published?.dist?.integrity, expected, 'npm must serve the exact qualified package');
           console.log(`${name}@${version} is verified on the public npm registry.`);
           JS
