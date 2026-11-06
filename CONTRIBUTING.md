@@ -14,3 +14,5 @@ cluster configuration, customer data or secrets. Sign commits and include a
 `Signed-off-by` line. Contributions are provided under Apache-2.0.
 
 Keep the declared source inputs in `attest.yaml` current when adding files.
+
+Plan integration deliveries using the [coordinated ADK version policy](docs/versioning.md).

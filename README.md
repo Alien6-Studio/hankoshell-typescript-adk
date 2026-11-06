@@ -1,6 +1,8 @@
 # HankoShell TypeScript ADK
 
 Application authentication, backend adapters and reusable account screens for HankoShell.
+
+Go and TypeScript share a version for each qualified integration delivery. See the [coordinated version policy](https://github.com/Alien6-Studio/hankoshell-typescript-adk/blob/main/docs/versioning.md).
 Use Node 22 or 24. Install the qualified public release:
 
 ```sh
