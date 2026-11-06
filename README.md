@@ -6,7 +6,7 @@ Go and TypeScript share a version for each qualified integration delivery. See t
 Use Node 22 or 24. Install the qualified public release:
 
 ```sh
-npm install https://github.com/Alien6-Studio/hankoshell-typescript-adk/releases/download/v0.7.1/alien6-studio-hankoshell-typescript-adk-0.7.1.tgz
+npm install @alien6-studio/hankoshell-typescript-adk@0.7.1
 ```
 
 [![CI](https://github.com/Alien6-Studio/hankoshell-typescript-adk/actions/workflows/ci.yml/badge.svg)](https://github.com/Alien6-Studio/hankoshell-typescript-adk/actions/workflows/ci.yml)
@@ -368,9 +368,18 @@ your application's frontend. Node services use the root, `/authjs`, `/passport`,
 
 Releases use `vX.Y.Z` tags matching
 `package.json`; the release workflow publishes the tested npm archive and signed qualification evidence
-on GitHub. The first npm publication uses that exact archive with maintainer 2FA.
-For subsequent automated publication, configure the package's npm trusted publisher
-for this repository and `release.yml`, then set `NPM_PUBLISH_ENABLED=true`.
+on GitHub and npm. Configure the package's npm trusted publisher for GitHub owner
+`Alien6-Studio`, repository `hankoshell-typescript-adk`, workflow `release.yml`,
+environment `release`, with the `npm publish` action allowed. Publication to npm is
+required; a missing publisher configuration fails the delivery instead of silently
+skipping it. No CI variable is needed to activate npm publication.
+
+To finish npm distribution of an existing GitHub release, dispatch `Release` from
+`main` with its signed tag, for example `v0.7.1`. Qualification runs against that
+tag. Before publishing, the workflow compares the archive with the existing public
+asset and refuses any difference. It verifies npm's package integrity and preserves
+the original GitHub release and evidence. Repeated publication of identical npm
+content is harmless; different content under an existing version is refused.
 No npm token is stored in this repository. Released versions are immutable.
 
 The [Go ADK](https://github.com/Alien6-Studio/hankoshell-golang-adk) is maintained
