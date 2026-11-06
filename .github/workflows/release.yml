@@ -47,19 +47,83 @@ jobs:
         run: |
           test "$(cat artifacts/source-revision.txt)" = "$(git rev-parse HEAD)"
           sha256sum --check proof/SHA256SUMS
+      - name: Preserve an existing public release
+        id: existing
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.version || github.ref_name }}
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, urllib.error, urllib.request
+          repo, tag = os.environ['GITHUB_REPOSITORY'], os.environ['RELEASE_TAG']
+          request = urllib.request.Request(
+              f'https://api.github.com/repos/{repo}/releases/tags/{tag}',
+              headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN']})
+          try:
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  release = json.load(response)
+          except urllib.error.HTTPError as error:
+              if error.code != 404:
+                  raise
+              release = None
+          if release:
+              assert not release['draft'] and not release['prerelease']
+              packages = list(pathlib.Path('artifacts').glob('*.tgz'))
+              assert len(packages) == 1
+              package = packages[0]
+              assets = [a for a in release['assets'] if a['name'] == package.name]
+              assert len(assets) == 1
+              asset = assets[0]
+              assert asset['size'] == package.stat().st_size
+              assert asset['browser_download_url'].startswith(f'https://github.com/{repo}/releases/download/{tag}/')
+              with urllib.request.urlopen(asset['browser_download_url'], timeout=60) as response:
+                  published = response.read(asset['size'] + 1)
+              assert published == package.read_bytes(), 'Qualified package differs from the immutable public release'
+              print('Existing public package matches the qualified archive: ' + hashlib.sha256(published).hexdigest())
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('exists=' + str(release is not None).lower() + '\n')
+          PY
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: "24"
           registry-url: https://registry.npmjs.org
       - name: Publish TypeScript using the configured npm trusted publisher
-        if: vars.NPM_PUBLISH_ENABLED == 'true'
         env:
           RELEASE_TAG: ${{ inputs.version || github.ref_name }}
         run: |-
           npm install --global npm@12.2.0 --ignore-scripts
           test "$RELEASE_TAG" = "v$(node -p 'require("./package.json").version')"
-          npm publish artifacts/*.tgz --access public --provenance
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import { createHash } from 'node:crypto';
+          import { readFileSync, readdirSync } from 'node:fs';
+          import { spawnSync } from 'node:child_process';
+          const { name, version } = JSON.parse(readFileSync('package.json', 'utf8'));
+          const packages = readdirSync('artifacts').filter(file => file.endsWith('.tgz'));
+          assert.equal(packages.length, 1);
+          const archive = `artifacts/${packages[0]}`;
+          const expected = 'sha512-' + createHash('sha512').update(readFileSync(archive)).digest('base64');
+          const endpoint = `https://registry.npmjs.org/${encodeURIComponent(name)}/${encodeURIComponent(version)}`;
+          async function registry() {
+            const response = await fetch(endpoint, { signal: AbortSignal.timeout(30_000) });
+            if (response.status === 404) return null;
+            assert.equal(response.status, 200, 'Registry availability must be established before publishing');
+            return response.json();
+          }
+          let published = await registry();
+          if (!published) {
+            const result = spawnSync('npm', ['publish', archive, '--ignore-scripts', '--access', 'public', '--provenance'], { stdio: 'inherit' });
+            assert.equal(result.status, 0, 'npm publication failed');
+            for (let attempt = 0; attempt < 5 && !published; attempt++) {
+              await new Promise(resolve => setTimeout(resolve, 2_000));
+              published = await registry();
+            }
+          }
+          assert.equal(published?.dist?.integrity, expected, 'npm must serve the exact qualified package');
+          console.log(`${name}@${version} is verified on the public npm registry.`);
+          JS
       - name: Create the package release
+        if: steps.existing.outputs.exists != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.version || github.ref_name }}
