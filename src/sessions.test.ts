@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createHankoSessionManager, HankoSessionError, type HankoSessionStore, type HankoStoredSession, type HankoSessionTokens } from "./sessions.js";
 import { createHankoAuthJsSession } from "./authjs-session.js";
+import { HankoTransportError } from "./http.js";
 
 class SharedStore implements HankoSessionStore {
   rows = new Map<string, HankoStoredSession>();
@@ -71,7 +72,7 @@ test("unknown, rejected and invalid refreshes are terminal and never replayed", 
 });
 test("only explicitly pre-exchange failures release the lease for later recovery", async () => {
   let calls = 0;
-  const f = fixture({ refresh: async tokens => (++calls === 1 ? { ...tokens, error: "deferred", refreshFailure: { retryable: true } } : { ...tokens, expiresAt: 3000 }) });
+  const f = fixture({ refresh: async tokens => (++calls === 1 ? { ...tokens, error: "deferred", refreshFailure: { category: "discovery_unavailable", stage: "discovery", retryable: true } } : { ...tokens, expiresAt: 3000 }) });
   const manager = createHankoSessionManager(f.options);
   const session = await manager.create(initial);
   f.setClock(1990_000);
@@ -126,4 +127,15 @@ test("Auth.js config keeps the opaque pointer in cookies and exposes no long-liv
   await adapter.revoke(token);
   assert.equal((await adapter.callbacks.session({ session: { expires: "irrelevant" }, token })).error, "ReauthenticationRequired");
   assert.equal(config.session?.strategy, "jwt");
+});
+test("session diagnostics preserve safe renewal causes and distinguish dependency outages", async () => {
+  const f = fixture({ refresh: async tokens => ({ ...tokens, error: "unavailable", refreshFailure: { category: "provider_unavailable", stage: "refresh", retryable: true, httpStatus: 503 } }) });
+  const manager = createHankoSessionManager(f.options);
+  const session = await manager.create(initial);
+  f.setClock(1990_000);
+  await assert.rejects(manager.read(session.id), error => error instanceof HankoSessionError && error.category === "refresh_outcome_unknown" && error.refreshFailure?.category === "provider_unavailable" && error.refreshFailure.httpStatus === 503);
+  const fresh = fixture();
+  const id = (await createHankoSessionManager(fresh.options).create(initial)).id;
+  const unavailable = createHankoSessionManager({ ...fresh.options, verify: async () => { throw new HankoTransportError("network"); } });
+  await assert.rejects(unavailable.read(id), { category: "session_unavailable" });
 });

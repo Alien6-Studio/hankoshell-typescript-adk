@@ -84,6 +84,7 @@ try {
   const entrypoints = [
     "",
     "/authjs",
+    "/authjs/session",
     "/passport",
     "/sessions",
     "/sessions/postgres",

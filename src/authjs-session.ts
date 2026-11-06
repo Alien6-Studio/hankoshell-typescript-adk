@@ -1,7 +1,7 @@
 import type { NextAuthConfig, Session } from "next-auth";
 import type { JWT } from "next-auth/jwt";
 import type { HankoClientConfig } from "./config.js";
-import { createHankoAuthJsProvider, refreshHankoAccessToken } from "./authjs.js";
+import { createHankoAuthJsProvider, refreshHankoAccessToken, type HankoRefreshFailure } from "./authjs.js";
 import { getHankoLogoutToken } from "./logout.js";
 import { createHankoSessionManager, HankoSessionError, type HankoSessionManagerOptions, type HankoSessionFailure } from "./sessions.js";
 import { resolveHankoApplicationAccess } from "./access.js";
@@ -17,14 +17,14 @@ export interface HankoPublicSession extends Session {
 export interface HankoAuthJsSessionOptions extends Omit<HankoSessionManagerOptions, "client" | "refresh"> {
   readonly client: HankoClientConfig | (() => HankoClientConfig | Promise<HankoClientConfig>);
   readonly basePath?: string;
-  readonly onDiagnostic?: (event: { stage: "sign_in" | "session" | "sign_out"; category: HankoSessionFailure }) => void;
+  readonly onDiagnostic?: (event: { stage: "sign_in" | "session" | "sign_out"; category: HankoSessionFailure; refreshFailure?: HankoRefreshFailure }) => void;
 }
 
 /** Supported Auth.js callbacks; JWT cookies contain a session pointer, never provider tokens. */
 export function createHankoAuthJsSession(options: HankoAuthJsSessionOptions) {
   const diagnostic = (stage: "sign_in" | "session" | "sign_out", error: unknown): HankoSessionFailure => {
     const category = error instanceof HankoSessionError ? error.category : "session_unavailable";
-    try { options.onDiagnostic?.({ stage, category }); } catch { /* Observability cannot change session authority. */ }
+    try { options.onDiagnostic?.({ stage, category, ...(error instanceof HankoSessionError && error.refreshFailure ? { refreshFailure: error.refreshFailure } : {}) }); } catch { /* Observability cannot change session authority. */ }
     return category;
   };
   const configuration = async () => typeof options.client === "function" ? await options.client() : options.client;

@@ -26,6 +26,10 @@
       "types": "./dist/authjs.d.ts",
       "import": "./dist/authjs.js"
     },
+    "./authjs/session": {
+      "types": "./dist/authjs-session.d.ts",
+      "import": "./dist/authjs-session.js"
+    },
     "./passport": {
       "types": "./dist/passport.d.ts",
       "import": "./dist/passport.js"

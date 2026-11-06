@@ -4,6 +4,7 @@ import { createHankoAccessTokenVerifier } from "./verify.js";
 import type { HankoPrincipal } from "./principal.js";
 import { HankoHttpError, HankoTransportError, HankoResponseError } from "./http.js";
 import { HankoDiscoveryError } from "./discovery.js";
+import type { HankoRefreshFailure } from "./authjs.js";
 
 /** Opaque encrypted state. Store implementations must make each operation atomic. */
 export interface HankoStoredSession {
@@ -29,7 +30,15 @@ export interface HankoSessionTokens {
 }
 export type HankoSessionFailure = "session_expired" | "session_unavailable" | "refresh_rejected" | "refresh_outcome_unknown" | "invalid_token";
 export class HankoSessionError extends Error {
-  constructor(readonly category: HankoSessionFailure) { super(`Hanko session failed (${category})`); }
+  readonly refreshFailure?: HankoRefreshFailure;
+  constructor(readonly category: HankoSessionFailure, failure?: HankoRefreshFailure) {
+    super(`Hanko session failed (${category})`);
+    const categories = ["missing_refresh_token", "configuration", "discovery_unavailable", "discovery_invalid", "rejected_grant", "client_configuration", "provider_unavailable", "refresh_outcome_unknown", "invalid_response", "coordinator_capacity", "session_invalidated"];
+    if (failure) this.refreshFailure = { category: categories.includes(failure.category) ? failure.category : "refresh_outcome_unknown",
+      stage: ["configuration", "discovery", "refresh", "coordination"].includes(failure.stage) ? failure.stage : "refresh",
+      retryable: failure.retryable === true && ((failure.category === "discovery_unavailable" && failure.stage === "discovery") || (failure.category === "coordinator_capacity" && failure.stage === "coordination")),
+      ...(Number.isSafeInteger(failure.httpStatus) && Number(failure.httpStatus) >= 100 && Number(failure.httpStatus) <= 599 ? { httpStatus: failure.httpStatus! } : {}) };
+  }
 }
 export interface HankoSession {
   readonly id: string;
@@ -42,7 +51,7 @@ export interface HankoSessionManagerOptions {
   readonly audience: string;
   readonly secret: string;
   readonly store: HankoSessionStore;
-  readonly refresh: (tokens: HankoSessionTokens) => Promise<HankoSessionTokens & { error?: string | undefined; refreshFailure?: { retryable: boolean } | undefined }>;
+  readonly refresh: (tokens: HankoSessionTokens) => Promise<HankoSessionTokens & { error?: string | undefined; refreshFailure?: HankoRefreshFailure | undefined }>;
   readonly verify?: (token: string) => Promise<HankoPrincipal>;
   readonly maxAgeSeconds?: number;
   readonly renewalMarginSeconds?: number;
@@ -147,13 +156,14 @@ export function createHankoSessionManager(options: HankoSessionManagerOptions) {
         try {
           const result = await options.refresh({ ...envelope.tokens });
           if (result.error) {
-            if (result.refreshFailure?.retryable) {
+            const failure = new HankoSessionError("refresh_rejected", result.refreshFailure).refreshFailure;
+            if (failure?.retryable) {
               // Only an explicitly pre-exchange failure can safely release ownership.
               const released = { ...value, revision: randomUUID() };
               if (!await stored(() => options.store.replace(scope, claimed.revision, released))) throw new HankoSessionError("session_expired");
-              throw new HankoSessionError("session_unavailable");
+              throw new HankoSessionError("session_unavailable", failure);
             }
-            throw new HankoSessionError("refresh_rejected");
+            throw new HankoSessionError(failure?.category === "refresh_outcome_unknown" || failure?.category === "provider_unavailable" ? "refresh_outcome_unknown" : "refresh_rejected", failure);
           }
           tokens = { accessToken: result.accessToken, expiresAt: result.expiresAt,
             ...(result.refreshToken ? { refreshToken: result.refreshToken } : {}), ...(result.logoutToken ? { logoutToken: result.logoutToken } : {}) };

@@ -30,7 +30,7 @@ integration. Install the optional `next-auth` and `pg` peers in the host:
 import NextAuth from "next-auth";
 import { Pool } from "pg";
 import { loadHankoClientConfig } from "@alien6-studio/hankoshell-typescript-adk";
-import { createHankoAuthJsSession } from "@alien6-studio/hankoshell-typescript-adk/authjs";
+import { createHankoAuthJsSession } from "@alien6-studio/hankoshell-typescript-adk/authjs/session";
 import { createHankoPostgresSessionStore } from "@alien6-studio/hankoshell-typescript-adk/sessions/postgres";
 
 const integration = createHankoAuthJsSession({

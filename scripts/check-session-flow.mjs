@@ -4,7 +4,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { Auth } from "@auth/core";
 import { SignJWT, exportJWK, generateKeyPair } from "jose";
 import pg from "pg";
-import { createHankoAuthJsSession } from "../dist/authjs.js";
+import { createHankoAuthJsSession } from "../dist/authjs-session.js";
 import { createHankoPostgresSessionStore, HANKO_POSTGRES_SESSION_SCHEMA } from "../dist/sessions-postgres.js";
 
 assert.ok(process.env.HANKO_TEST_DATABASE_URL, "Set HANKO_TEST_DATABASE_URL to a disposable empty PostgreSQL database");

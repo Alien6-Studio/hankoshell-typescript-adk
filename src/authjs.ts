@@ -7,9 +7,6 @@ import { HankoDiscovery, HankoDiscoveryError, type HankoDiscoveryOptions } from 
 import type { HankoClaims } from "./principal.js";
 import { HankoHttpError, HankoResponseError, requestHankoJson } from "./http.js";
 
-export { createHankoAuthJsSession } from "./authjs-session.js";
-export type { HankoAuthJsSessionOptions, HankoPublicSession } from "./authjs-session.js";
-
 export type HankoAuthJsOverrides = Pick<OIDCUserConfig<HankoAuthJsProfile>, "name" | "style" | "profile" | "account">;
 
 export interface HankoAuthJsProfile extends HankoClaims {

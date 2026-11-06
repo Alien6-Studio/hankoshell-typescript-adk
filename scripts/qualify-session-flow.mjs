@@ -17,7 +17,8 @@ try {
     const ports = JSON.parse(run(["inspect", name, "--format", "{{json .NetworkSettings.Ports}}"]));
     url = `postgres://postgres:${password}@127.0.0.1:${ports["5432/tcp"][0].HostPort}/hanko_sessions`;
     const deadline = Date.now() + 30_000;
-    while (spawnSync("docker", ["exec", name, "pg_isready", "-U", "postgres"], { stdio: "ignore" }).status !== 0) {
+    // The entrypoint's temporary setup server accepts Unix sockets before TCP is ready.
+    while (spawnSync("docker", ["exec", name, "pg_isready", "-h", "127.0.0.1", "-U", "postgres"], { stdio: "ignore" }).status !== 0) {
       if (Date.now() >= deadline) throw new Error("Disposable PostgreSQL fixture did not become ready");
       await new Promise(resolve => setTimeout(resolve, 100));
     }
