@@ -39,6 +39,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
+      - run: npm run test:session-flow
       - run: npm audit --omit=dev --audit-level=high
   checks:
     name: ADK checks

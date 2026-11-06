@@ -42,9 +42,11 @@ export type { HankoLogoutRequest } from "./logout.js";
 
 export { resolveHankoApplicationAccess } from "./access.js";
 export type { HankoApplicationAccess } from "./access.js";
+export { requireHankoApplicationAccess, HankoAccessError } from "./access-diagnostics.js";
+export type { HankoAccessDenial, HankoApplicationBinding } from "./access-diagnostics.js";
 export { createHankoAccessTokenVerifier } from "./verify.js";
 
 export { HankoApplicationOrganizationClient } from "./application-organization.js";
-export type { HankoApplicationMembership, HankoApplicationMembers, HankoApplicationInvitation, HankoApplicationOrganizationOptions } from "./application-organization.js";
+export type { HankoApplicationMembership, HankoApplicationMembers, HankoApplicationInvitation, HankoApplicationOrganizationOptions, HankoApplicationContextSelection } from "./application-organization.js";
 
 export { HankoHttpError, HankoResponseError, HankoTransportError } from "./http.js";

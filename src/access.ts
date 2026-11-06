@@ -1,4 +1,5 @@
 import type { HankoPrincipal } from "./principal.js";
+import { requireHankoApplicationAccess, type HankoApplicationBinding } from "./access-diagnostics.js";
 
 export interface HankoApplicationAccess {
   readonly subject: string;
@@ -15,11 +16,16 @@ export interface HankoApplicationAccess {
 export function resolveHankoApplicationAccess(
   principal: HankoPrincipal,
   applicationId: string,
+  binding: HankoApplicationBinding = {},
 ): HankoApplicationAccess {
   if (!applicationId || !principal.audiences.includes(applicationId))
     throw new Error("Application audience mismatch");
   const base = { subject: principal.subject, issuer: principal.issuer };
   const claims = principal.claims;
+  if (Object.hasOwn(claims, "hanko_application_context")) {
+    try { return requireHankoApplicationAccess(principal, applicationId, [], binding); }
+    catch { return { ...base, roles: [] }; }
+  }
   if (Object.hasOwn(claims, "organization")) {
     const organizations = record(claims.organization);
     const entries = organizations ? Object.entries(organizations) : [];

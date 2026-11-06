@@ -7,6 +7,9 @@ import { HankoDiscovery, HankoDiscoveryError, type HankoDiscoveryOptions } from 
 import type { HankoClaims } from "./principal.js";
 import { HankoHttpError, HankoResponseError, requestHankoJson } from "./http.js";
 
+export { createHankoAuthJsSession } from "./authjs-session.js";
+export type { HankoAuthJsSessionOptions, HankoPublicSession } from "./authjs-session.js";
+
 export type HankoAuthJsOverrides = Pick<OIDCUserConfig<HankoAuthJsProfile>, "name" | "style" | "profile" | "account">;
 
 export interface HankoAuthJsProfile extends HankoClaims {
@@ -62,6 +65,7 @@ export function createHankoAuthJsProvider(
       clientId: normalized.clientId,
       ...(normalized.clientSecret ? { clientSecret: normalized.clientSecret } : {}),
       issuer: normalized.issuer,
+      client: { token_endpoint_auth_method: normalized.clientSecret ? "client_secret_post" : "none" },
       checks: ["pkce", "state", "nonce"],
     },
   };

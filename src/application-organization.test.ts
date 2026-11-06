@@ -29,3 +29,17 @@ test("application client refuses ambiguous targets and preserves authorization f
  }
  await assert.rejects(new HankoApplicationOrganizationClient(opts).membership(),/status 403/);
 });
+test("approved choices and selection use the platform's user-session route contract", async () => {
+ const membership = { subject: "alice", organization: "org", role: "reader", administrator: false };
+ const calls: { path: string; method: string; body: unknown }[] = [];
+ const client = new HankoApplicationOrganizationClient({ apiUrl: "https://auth.example.test", realm: "example", applicationId: "web", accessToken: () => "original-user-session", fetch: async (input, init) => {
+  assert.equal(new Headers(init?.headers).get("Authorization"), "Bearer original-user-session");
+  const path = new URL(String(input)).pathname;
+  calls.push({ path, method: init?.method ?? "GET", body: init?.body ? JSON.parse(String(init.body)) : undefined });
+  return Response.json(path.endsWith("/memberships") ? { memberships: [membership] } : { membership, context: { ...membership, root: "root", node_path: ["root", "org"], roles: ["member"], policy_version: 1 }, access_token: "bounded-context", token_type: "Bearer", expires_in: 300 });
+ }});
+ assert.deepEqual((await client.memberships()).memberships, [membership]);
+ assert.equal((await client.selectMembership("org")).access_token, "bounded-context");
+ assert.deepEqual(calls, [{ path: "/api/v1/application-organizations/realms/example/applications/web/memberships", method: "GET", body: undefined }, { path: "/api/v1/application-organizations/realms/example/applications/web/membership", method: "POST", body: { organization: "org" } }]);
+ await assert.rejects(client.selectMembership("../foreign"));
+});
