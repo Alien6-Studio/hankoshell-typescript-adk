@@ -33,6 +33,8 @@ export { HankoIamClient } from "./iam.js";
 export { HankoDelegatedOrganizationClient } from "./organization-administration.js";
 export type { HankoDelegatedOrganizationClientOptions, HankoDelegatedPosition, HankoOrganizationDelegationSpec, HankoOrganizationDelegationMetadata, HankoOrganizationDelegation } from "./organization-administration.js";
 export type { HankoUser, HankoRole, HankoRoleSpec, HankoRolePatch } from "./iam.js";
+export { HankoApplicationSecretClient } from "./application-secret.js";
+export type { HankoApplicationMetadata, HankoApplicationSecret, HankoApplicationSecretClientOptions } from "./application-secret.js";
 export { HankoTokenClient } from "./token.js";
 export type { HankoTokenSet, HankoTokenClientOptions, HankoTokenExchange } from "./token.js";
 

@@ -6,7 +6,7 @@ Go and TypeScript share a version for each qualified integration delivery. See t
 Use Node 22 or 24. Install the qualified public release:
 
 ```sh
-npm install @alien6-studio/hankoshell-typescript-adk@0.7.1
+npm install @alien6-studio/hankoshell-typescript-adk@0.7.2
 ```
 
 [![CI](https://github.com/Alien6-Studio/hankoshell-typescript-adk/actions/workflows/ci.yml/badge.svg)](https://github.com/Alien6-Studio/hankoshell-typescript-adk/actions/workflows/ci.yml)
@@ -239,6 +239,26 @@ const iam = new HankoIamClient({
 });
 const positions = await iam.listPositions(realm);
 const members = await iam.listMembers(realm, positionId);
+```
+
+`HankoApplicationSecretClient` lets a product backend rotate the secret of its own
+confidential applications from its dashboard. Bind `realm` and the `clientIds`
+allowlist at construction; other applications are refused before any request.
+`getApplication(clientId)` returns metadata without a secret, and
+`rotateSecret(clientId)` returns `{ clientId, clientSecret, rotatedAt }` once. The
+previous secret stops working. Show the new value to the operator once and store
+it only where the connected client needs it; never log it. The platform API
+currently requires realm administration for this route, so keep the credential on
+the backend and limit who can reach the rotation action.
+
+```ts
+const secrets = new HankoApplicationSecretClient({
+  apiUrl,
+  accessToken: () => adminSession.accessToken,
+  realm,
+  clientIds: ["product-assistant"],
+});
+const { clientSecret, rotatedAt } = await secrets.rotateSecret("product-assistant");
 ```
 
 `HankoTokenClient` supports server-side client credentials and explicit

@@ -1,6 +1,6 @@
 # Coordinated ADK versions
 
-Go and TypeScript use one version for each qualified application-integration delivery. The current shared target is **0.7.1**. Select the same published version when an integration uses both languages.
+Go and TypeScript use one version for each qualified application-integration delivery. The current shared target is **0.7.2**. Select the same published version when an integration uses both languages.
 
 ## Planning and qualification
 

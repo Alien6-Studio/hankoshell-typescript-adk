@@ -1,6 +1,6 @@
 {
   "name": "@alien6-studio/hankoshell-typescript-adk",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "HankoShell OIDC and IAM clients with Auth.js, Passport and headless React account screens",
   "type": "module",
   "sideEffects": false,
